@@ -6,8 +6,27 @@ requireLogin();
 
 $student_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
+
 if ($student_id === 0) {
     header('Location: students.php');
+    exit();
+}
+
+// Handle batch toggle
+if (isset($_POST['toggle_batch'])) {
+    $current_batch = $_POST['current_batch'];
+    $new_batch = ($current_batch === 'Morning') ? 'Evening' : 'Morning';
+    
+    $stmt = $conn->prepare("UPDATE students SET batch = ? WHERE id = ?");
+    $stmt->bind_param("si", $new_batch, $student_id);
+    
+    if ($stmt->execute()) {
+        $_SESSION['success'] = "Batch changed to $new_batch successfully!";
+    } else {
+        $_SESSION['error'] = "Failed to change batch.";
+    }
+    $stmt->close();
+    header("Location: student_details.php?id=$student_id");
     exit();
 }
 
@@ -206,6 +225,40 @@ $topics_total = $topics->num_rows;
 $projects = $conn->query("SELECT * FROM student_projects WHERE student_id = $student_id ORDER BY created_at DESC");
 ?>
 
+<!-- Course Timeline Card -->
+<div class="row g-4 mb-4">
+    <div class="col-12">
+        <div class="table-card">
+            <!--<h5 class="text-purple mb-3"><i class="fas fa-calendar-alt"></i> Course Timeline</h5>-->
+            <div class="row">
+                <div class="col-md-3">
+                    <label class="text-muted mb-1">Enrollment Date</label>
+                    <p class="mb-0"><strong><?php echo date('d M Y', strtotime($student['enrollment_date'])); ?></strong></p>
+                </div>
+                <div class="col-md-3">
+                    <label class="text-muted mb-1">Course Duration</label>
+                    <p class="mb-0"><strong><?php echo $student['duration_months']; ?> Months</strong></p>
+                </div>
+                <div class="col-md-3">
+                    <label class="text-muted mb-1">Expected End Date</label>
+                    <p class="mb-0"><strong><?php echo date('d M Y', strtotime($course_end_date)); ?></strong></p>
+                </div>
+                <div class="col-md-3">
+                    <label class="text-muted mb-1">Days Remaining</label>
+                    <?php 
+                    $days_remaining = (strtotime($course_end_date) - strtotime('now')) / 86400;
+                    $badge_class = $days_remaining < 0 ? 'danger' : ($days_remaining < 30 ? 'warning' : 'success');
+                    ?>
+                    <p class="mb-0">
+                        <span class="badge bg-<?php echo $badge_class; ?>">
+                            <?php echo $days_remaining < 0 ? 'Expired ' . abs(round($days_remaining)) . ' days ago' : round($days_remaining) . ' days left'; ?>
+                        </span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 <!-- INSERT BEFORE Student Information Card (around line 200) -->
 <!-- Payment Summary Cards - Move to TOP -->
 <div class="row g-3 mb-4">
@@ -251,40 +304,6 @@ $projects = $conn->query("SELECT * FROM student_projects WHERE student_id = $stu
     </div>
 </div>
 
-<!-- Course Timeline Card -->
-<div class="row g-4 mb-4">
-    <div class="col-12">
-        <div class="table-card">
-            <!--<h5 class="text-purple mb-3"><i class="fas fa-calendar-alt"></i> Course Timeline</h5>-->
-            <div class="row">
-                <div class="col-md-3">
-                    <label class="text-muted mb-1">Enrollment Date</label>
-                    <p class="mb-0"><strong><?php echo date('d M Y', strtotime($student['enrollment_date'])); ?></strong></p>
-                </div>
-                <div class="col-md-3">
-                    <label class="text-muted mb-1">Course Duration</label>
-                    <p class="mb-0"><strong><?php echo $student['duration_months']; ?> Months</strong></p>
-                </div>
-                <div class="col-md-3">
-                    <label class="text-muted mb-1">Expected End Date</label>
-                    <p class="mb-0"><strong><?php echo date('d M Y', strtotime($course_end_date)); ?></strong></p>
-                </div>
-                <div class="col-md-3">
-                    <label class="text-muted mb-1">Days Remaining</label>
-                    <?php 
-                    $days_remaining = (strtotime($course_end_date) - strtotime('now')) / 86400;
-                    $badge_class = $days_remaining < 0 ? 'danger' : ($days_remaining < 30 ? 'warning' : 'success');
-                    ?>
-                    <p class="mb-0">
-                        <span class="badge bg-<?php echo $badge_class; ?>">
-                            <?php echo $days_remaining < 0 ? 'Expired ' . abs(round($days_remaining)) . ' days ago' : round($days_remaining) . ' days left'; ?>
-                        </span>
-                    </p>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 
 <!-- THEN continue with existing Student Information Card -->
 
@@ -396,6 +415,27 @@ $projects = $conn->query("SELECT * FROM student_projects WHERE student_id = $stu
                 </div>
             </div>
             
+             <!-- NEW: Display and Toggle Batch -->
+        <div class="mb-3">
+            <label class="text-muted mb-1"><i class="fas fa-clock"></i> Batch</label>
+            <div class="d-flex align-items-center justify-content-between">
+                <span class="badge <?php echo $student['batch'] === 'Morning' ? 'bg-warning' : 'bg-info'; ?> fs-6">
+                    <i class="fas <?php echo $student['batch'] === 'Morning' ? 'fa-sun' : 'fa-moon'; ?>"></i>
+                    <?php echo $student['batch']; ?> Batch
+                </span>
+                
+                <!-- Batch Toggle Switch -->
+                <form method="POST" class="d-inline">
+                    <input type="hidden" name="toggle_batch" value="1">
+                    <input type="hidden" name="current_batch" value="<?php echo $student['batch']; ?>">
+                    <button type="submit" class="btn btn-sm btn-outline-primary" 
+                            onclick="return confirm('Change batch to <?php echo $student['batch'] === 'Morning' ? 'Evening' : 'Morning'; ?>?')">
+                        <i class="fas fa-exchange-alt"></i> Switch
+                    </button>
+                </form>
+            </div>
+        </div>
+            
             <button class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#resetPasswordModal">
                 <i class="fas fa-sync"></i> Reset Password
             </button>
@@ -433,34 +473,7 @@ $projects = $conn->query("SELECT * FROM student_projects WHERE student_id = $stu
     <div class="col-lg-8">
         <!-- Fee Summary Cards -->
         <div class="row g-3 mb-4">
-            <div class="col-md-4">
-                <div class="card dashboard-card">
-                    <div class="card-body">
-                        <p class="text-muted mb-1">Total Fees</p>
-                        <h4 class="mb-0 text-purple">₹<?php echo number_format($student['total_fees'], 2); ?></h4>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="col-md-4">
-                <div class="card dashboard-card">
-                    <div class="card-body">
-                        <p class="text-muted mb-1">Amount Paid</p>
-                        <h4 class="mb-0 text-success">₹<?php echo number_format($total_paid, 2); ?></h4>
-                        <small class="text-muted"><?php echo $payment_summary['payment_count']; ?> payments</small>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="col-md-4">
-                <div class="card dashboard-card">
-                    <div class="card-body">
-                        <p class="text-muted mb-1">Pending Amount</p>
-                        <h4 class="mb-0 text-danger">₹<?php echo number_format($pending, 2); ?></h4>
-                        <span class="badge status-<?php echo strtolower($payment_status); ?>"><?php echo $payment_status; ?></span>
-                    </div>
-                </div>
-            </div>
+          
             
             <!-- ADD BEFORE </div> closing row tag (around line 380) -->
 
@@ -875,6 +888,9 @@ function deleteProject(projectId) {
                             <label class="form-label">Full Name *</label>
                             <input type="text" class="form-control" name="full_name" value="<?php echo htmlspecialchars($student['full_name']); ?>" required>
                         </div>
+                         <hr>
+        
+       
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Phone *</label>
                             <input type="tel" class="form-control" name="phone" value="<?php echo htmlspecialchars($student['phone']); ?>" required>
@@ -1007,6 +1023,8 @@ function deleteProject(projectId) {
         </div>
     </div>
 </div>
+
+
 
 <!-- Portal Access Modals (keep existing Enable/Reset/Disable modals) -->
 <!-- Enable Login Modal -->
