@@ -10,6 +10,7 @@ require_once './config/database.php'; // Only include ONCE
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
+   
     if ($_POST['action'] === 'add') {
         $student_code = 'STU' . date('Ymd') . rand(1000, 9999);
         $full_name = sanitize($_POST['full_name']);
@@ -19,11 +20,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $category_id = (int)$_POST['category_id'];
         $course_id = (int)$_POST['course_id'];
         $duration_months = (int)$_POST['duration_months'];
+        $batch = sanitize($_POST['batch']); // NEW: Batch field
         $total_fees = (float)$_POST['total_fees'];
         $enrollment_date = sanitize($_POST['enrollment_date']);
 
-        $stmt = $conn->prepare("INSERT INTO students (student_code, full_name, email, phone, address, category_id, course_id, duration_months, total_fees, enrollment_date, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active')");
-        $stmt->bind_param("sssssiiiis", $student_code, $full_name, $email, $phone, $address, $category_id, $course_id, $duration_months, $total_fees, $enrollment_date);
+        // UPDATED SQL: Include batch column
+        $stmt = $conn->prepare("INSERT INTO students (student_code, full_name, email, phone, address, category_id, course_id, duration_months, batch, total_fees, enrollment_date, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active')");
+        $stmt->bind_param("sssssiissds", $student_code, $full_name, $email, $phone, $address, $category_id, $course_id, $duration_months, $batch, $total_fees, $enrollment_date);
 
         if ($stmt->execute()) {
             $_SESSION['success'] = "Student enrolled successfully! Student Code: $student_code";
@@ -271,14 +274,24 @@ include 'includes/header.php';
                     </div>
 
                     <div class="row">
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-4 mb-3">
                             <label class="form-label">Duration *</label>
                             <select class="form-select" name="duration_months" id="duration_select" required>
                                 <option value="">Select Duration</option>
                             </select>
                         </div>
                         
-                        <div class="col-md-6 mb-3">
+                            <!-- NEW: Batch Selection -->
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Batch *</label>
+                            <select class="form-select" name="batch" required>
+                                <option value="Morning">Morning</option>
+                                <option value="Evening">Evening</option>
+                            </select>
+                            <small class="text-muted">Student's class timing</small>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
                             <label class="form-label">Total Fees *</label>
                             <div class="input-group">
                                 <span class="input-group-text">₹</span>
